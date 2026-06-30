@@ -137,6 +137,33 @@ def classify_action(scores):
 def main():
     print(f"=== Research Radar Scan: {TODAY} ===\n")
     
+    # 0. Key author scan (aviv bick et al.)
+    print("0. Scanning key authors on arXiv...")
+    key_authors = [
+        ("au:%22Albert+Gu%22", "Albert Gu"),
+        ("au:%22Tri+Dao%22", "Tri Dao"),
+        ("au:%22Aviv+Bick%22", "Aviv Bick"),
+        ("au:%22Songlin+Yang%22", "Songlin Yang"),
+        ("au:%22Yoon+Kim%22", "Yoon Kim"),
+        ("au:%22Christopher+Ré%22", "Christopher Ré"),
+        ("au:%22J.+Zico+Kolter%22", "J. Zico Kolter"),
+        ("au:%22Kevin+Y.+Li%22", "Kevin Y. Li"),
+        ("au:%22Aakash+Lahoti%22", "Aakash Lahoti"),
+        ("au:%22Berlin+Chen%22", "Berlin Chen"),
+    ]
+    author_entries = []
+    for au_code, au_name in key_authors:
+        print(f"   Checking {au_name} ({au_code})...")
+        xml = arxiv_api(au_code, max_results=10)
+        entries = parse_arxiv_feed(xml)
+        for e in entries:
+            e["scores"] = score_paper(e)
+            e["action"] = classify_action(e["scores"])
+            e["_author_search"] = au_name
+            author_entries.append(e)
+        time.sleep(3)
+    print(f"   Found {len(author_entries)} papers from key authors\n")
+    
     # 1. arXiv Scan
     print("1. Scanning arXiv...")
     arxiv_query = 'cat:cs.CL OR cat:cs.LG OR cat:cs.AI OR cat:stat.ML'
@@ -173,13 +200,22 @@ def main():
     # Filter to recent 48h
     cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
     recent = []
-    for e in all_entries:
+    for e in all_entries + author_entries:
         try:
             pub = datetime.fromisoformat(e["published"].replace('Z', '+00:00'))
             if pub >= cutoff:
                 recent.append(e)
         except:
             pass
+    
+    # Deduplicate by arxiv ID
+    seen_ids = set()
+    deduped = []
+    for e in recent:
+        if e["id"] not in seen_ids:
+            seen_ids.add(e["id"])
+            deduped.append(e)
+    recent = deduped
     
     # Sort by total score
     recent.sort(key=lambda x: x["scores"]["total"], reverse=True)
@@ -295,7 +331,7 @@ def main():
             "scores": e["scores"],
             "relevance": "high" if e["action"] == "deep_read" else "medium",
             "confidence": "medium",
-            "why_relevant": f"Score: {e['scores']['total']}",
+            "why_relevant": f"Score: {e['scores']['total']}" + (f" [author: {e.get('_author_search', '')}]" if '_author_search' in e else ""),
             "relation_to_our_work": "useful_related_work",
             "recommended_action": e["action"],
             "evidence_quote_or_snippet": e["summary"][:300]
