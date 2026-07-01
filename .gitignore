@@ -1,0 +1,5 @@
+.env
+scripts/push.sh
+__pycache__/
+*.pyc
+*.log

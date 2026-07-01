@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 
 TOKEN = os.environ.get("RESEARCH_RADAR_GITHUB_TOKEN", "")
 TODAY = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
-REPO_DIR = "/root/.openclaw/workspace/radar"
+REPO_DIR = "/root/linear-ssm-radar"
 
 def gh_api(path):
     url = f"https://api.github.com{path}"
